@@ -116,16 +116,26 @@ def train():
         
         with tf.device('/cpu:0'):
             images, labels = input.get_train_batch_data(BATCH_SIZE)
-        import pdb;pdb.set_trace()
+          
+        # train step
         logits = inference(images, parameters)
         loss = loss_function(logits, labels)
         train_op = train_step(loss, global_step)
+        
+        # validation step
+        
+        #with tf.device('/cpu:0'):
+        #    validation_images, validation_labels = input.get_validation_batch_data()
+        #accuracy = inference(images, parameters)
+        
         
         with tf.train.MonitoredTrainingSession(
             hooks=[tf.train.StopAtStepHook(last_step=EPOCH_NUM)]) as mon_sess:
             
             while not mon_sess.should_stop():
-                mon_sess.run(train_op)
+                loss = mon_sess.run([loss,train_op])
+                print("%d : %f" % (global_step, loss))
+                
                 
 def main():
     train()
