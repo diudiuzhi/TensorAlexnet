@@ -117,10 +117,4 @@ def _get_test_data():
     return t_datas, t_labels
 
 
-get_data_from_file()
-
-
-if __name__ == '__main__':
-    for i in range(30):
-        get_train_batch_data(64)
-    
+get_data_from_file()    
