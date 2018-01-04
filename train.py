@@ -9,7 +9,7 @@ conf = get_conf()
 
 TRAIN_SET_SIZE = int(conf.get('data', 'train_set'))
 BATCH_SIZE = int(conf.get('train', 'batch_size'))
-NUM_EPOCHS_PER_DECAY = float(conf.get('train', 'num_epochs_per_decay'))
+DECAY_STEP = float(conf.get('train', 'decay_step'))
 INITIAL_LEARNING_RATE = float(conf.get('train', 'initial_learning_rate'))
 LEARNING_RATE_DECAY_FACTOR = float(conf.get('train', 'learning_rate_decay_factor'))
 
@@ -72,19 +72,18 @@ def loss_function(logits, labels):
     '''return loss'''
     cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=labels, logits=logits)
     cross_entropy_mean = tf.reduce_mean(cross_entropy)
-    
+    tf.add_to_collection('losses', cross_entropy_mean)
     return cross_entropy_mean
 
 
 def train_step(loss, global_step):
-    num_batches_per_epoch = TRAIN_SET_SIZE / BATCH_SIZE
-    decay_steps = int(num_batches_per_epoch * NUM_EPOCHS_PER_DECAY)
     
     lr = tf.train.exponential_decay(INITIAL_LEARNING_RATE,
                                   global_step,
-                                  decay_steps,
+                                  DECAY_STEP,
                                   LEARNING_RATE_DECAY_FACTOR,
                                   staircase=True)
+    tf.add_to_collection('learning_rate', lr)
     
     train_op = tf.train.MomentumOptimizer(lr, MOMENTUM).minimize(loss)
     return train_op
@@ -128,13 +127,17 @@ def train():
         #    validation_images, validation_labels = input.get_validation_batch_data()
         #accuracy = inference(images, parameters)
         
-        
+        int count = 0
         with tf.train.MonitoredTrainingSession(
             hooks=[tf.train.StopAtStepHook(last_step=EPOCH_NUM)]) as mon_sess:
             
             while not mon_sess.should_stop():
-                loss = mon_sess.run([loss,train_op])
-                print("%d : %f" % (global_step, loss))
+                mon_sess.run(train_op)
+                count +=1
+                
+                if count % 700 == 0:
+                    print mon_sess.run(tf.get_collection('losses'))
+                    print mon_sess.run(tf.get_collection('learning_rate'))
                 
                 
 def main():
