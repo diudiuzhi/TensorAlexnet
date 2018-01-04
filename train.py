@@ -127,7 +127,7 @@ def train():
         #    validation_images, validation_labels = input.get_validation_batch_data()
         #accuracy = inference(images, parameters)
         
-        int count = 0
+        count = 0
         with tf.train.MonitoredTrainingSession(
             hooks=[tf.train.StopAtStepHook(last_step=EPOCH_NUM)]) as mon_sess:
             
