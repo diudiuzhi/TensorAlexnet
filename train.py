@@ -67,14 +67,14 @@ def inference(images, reuse=False):
     conv3 = conv2d(pool2, w3, bw3)
     
     # conv4
-    w4 = init_w("conv4", [3, 3, 96, 192], 0.0034, reuse)
+    w4 = init_w("conv4", [3, 3, 192, 192], 0.0024, reuse)
     bw4 = init_b("conv4", [192], reuse)
     conv4 = conv2d(conv3, w4, bw4)
     
     # conv5
-    w5 = init_w("conv5", [3, 3, 96, 192], 0.0034, reuse)
+    w5 = init_w("conv5", [3, 3, 192, 96], 0.0034, reuse)
     bw5 = init_b("conv5", [192], reuse)
-    conv5 = conv2d(conv4, parameters['w5'], parameters['bw5'])
+    conv5 = conv2d(conv4, w5, bw5)
     pool5 = max_pool(conv5, 2)
                 
     # FC1
