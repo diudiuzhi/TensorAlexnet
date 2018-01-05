@@ -73,7 +73,7 @@ def inference(images, reuse=False):
     
     # conv5
     w5 = init_w("conv5", [3, 3, 192, 96], 0.0034, reuse)
-    bw5 = init_b("conv5", [192], reuse)
+    bw5 = init_b("conv5", [96], reuse)
     conv5 = conv2d(conv4, w5, bw5)
     pool5 = max_pool(conv5, 2)
                 
@@ -144,7 +144,6 @@ def train():
         # 需要把 每一个batch的accuracy加起来，求平均
         correct_pred = tf.equal(tf.argmax(validation_logits, 1), tf.argmax(validation_labels, 1))
         accuracy = tf.reduce_mean(tf.cast(correct_pred, tf.float32))
-        store_accuracy = tf.add_to_collection('accuracy', accuracy)
         
         add_global = global_step.assign_add(1)
         
@@ -159,12 +158,12 @@ def train():
                     print mon_sess.run(tf.get_collection('losses'))
                     print mon_sess.run(tf.get_collection('learning_rate'))
                     
+                    total = 0.0
                     for i in range(78):
-                        mon_sess.run(calc_accuracy)
+                        total += mon_sess.run(accuracy)
                         
-                    accuracy = mon_sess.run(tf.add_n(tf.get_collection("accuracy")))
-                    accuracy /= 78
-                    print("%d  validation: %f" % (step, accuracy))
+                    total /= 78
+                    print("%d  validation: %f" % (step, total))
                 
                 
 def main():
