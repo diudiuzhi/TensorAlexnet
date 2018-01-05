@@ -36,8 +36,6 @@ def get_train_batch_data(batch_size):
     if batch_size <= 0:
         raise ValueError("batch size should greater than 0")
      
-    # remove size which not enough a batch size
-        
     valuequeue = tf.train.input_producer(TRAIN_IMAGES, shuffle=False)
     valuelabel = tf.train.input_producer(TRAIN_LABELS, shuffle=False)
        
@@ -58,10 +56,36 @@ def get_train_batch_data(batch_size):
         num_threads=16,
         capacity=min_queue_examples + 3 * batch_size)
     
-    
     return images, labels
     
     
+def get_validation_batch_data(batch_size):
+    if batch_size <= 0:
+        raise ValueError("batch size should greater than 0")
+     
+    valuequeue = tf.train.input_producer(VALIDATION_IMAGES, shuffle=False)
+    valuelabel = tf.train.input_producer(VALIDATION_LABELS, shuffle=False)
+       
+    image = valuequeue.dequeue()
+    label = valuelabel.dequeue()
+    
+    image = tf.cast(image, tf.float32)
+    image = tf.reshape(image, [3, 32, 32])
+    image = tf.transpose(image, [1, 2, 0])
+    
+    label = tf.cast(label, tf.int32)
+    
+    min_queue_examples = int(batch_size * 0.4)
+    
+    images, labels = tf.train.batch(
+        [image, label],
+        batch_size=batch_size,
+        num_threads=16,
+        capacity=min_queue_examples + 3 * batch_size)
+    
+    return images, labels
+
+
 def get_data_from_file():
     # train and validation data
     t_v_datas, t_v_labels = _get_train_and_validation_data()

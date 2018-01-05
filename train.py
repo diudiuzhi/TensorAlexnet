@@ -123,21 +123,35 @@ def train():
         
         # validation step
         
-        #with tf.device('/cpu:0'):
-        #    validation_images, validation_labels = input.get_validation_batch_data()
-        #accuracy = inference(images, parameters)
+        with tf.device('/cpu:0'):
+            validation_images, validation_labels = input.get_validation_batch_data(BATCH_SIZE)
         
-        count = 0
+        validation_logits = inference(validation_images, parameters)
+        validation_labels = tf.one_hot(validation_labels, depth=10)
+        
+        # 需要把 每一个batch的accuracy加起来，求平均
+        correct_pred = tf.equal(tf.argmax(validation_logits, 1), tf.argmax(validation_labels, 1))
+        accuracy = tf.reduce_mean(tf.cast(correct_pred, tf.float32))
+        calc_accuracy = tf.add_to_collection('total_accuracy', accuracy)
+        
+        add_global = global_step.assign_add(1)
+        
         with tf.train.MonitoredTrainingSession(
             hooks=[tf.train.StopAtStepHook(last_step=EPOCH_NUM)]) as mon_sess:
             
             while not mon_sess.should_stop():
                 mon_sess.run(train_op)
-                count +=1
+                step = mon_sess.run(add_global)
                 
-                if count % 700 == 0:
+                if step % 700 == 0:
                     print mon_sess.run(tf.get_collection('losses'))
                     print mon_sess.run(tf.get_collection('learning_rate'))
+                    for i in range(78):
+                        mon_sess.run(calc_accuracy)
+                    accuracy = mon_sess.run(tf.get_collection('total_accuracy'))
+                    step = mon_sess.run(global_step)
+                    accuracy /= 78
+                    print("%d  validation: %f" % (step, accuracy))
                 
                 
 def main():
