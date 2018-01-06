@@ -133,7 +133,7 @@ def train():
         loss = loss_function(logits, labels)
         train_op = train_step(loss, global_step)
         
-        # validation step
+        ##### validation step
         
         with tf.device('/cpu:0'):
             validation_images, validation_labels = input.get_validation_batch_data(BATCH_SIZE)
@@ -142,29 +142,57 @@ def train():
         validation_labels = tf.one_hot(validation_labels, depth=10)
         
         # 需要把 每一个batch的accuracy加起来，求平均
-        correct_pred = tf.equal(tf.argmax(validation_logits, 1), tf.argmax(validation_labels, 1))
-        accuracy = tf.reduce_mean(tf.cast(correct_pred, tf.float32))
+        validation_correct_pred = tf.equal(tf.argmax(validation_logits, 1), tf.argmax(validation_labels, 1))
+        validation_accuracy = tf.reduce_mean(tf.cast(validation_correct_pred, tf.float32))
+        
+        ##### Test step
+        with tf.device('/cpu:0'):
+            test_images, test_labels = input.get_test_batch_data(BATCH_SIZE)
+        test_logits = inference(test_images, True)
+        test_labels = tf.one_hot(test_labels, depth=10)
+        
+        test_correct_pred = tf.equal(tf.argmax(test_logits, 1), tf.argmax(test_labels, 1))
+        test_accuracy = tf.reduce_mean(tf.cast(test_correct_pred, tf.float32))
         
         add_global = global_step.assign_add(1)
         
         with tf.train.MonitoredTrainingSession(
             hooks=[tf.train.StopAtStepHook(last_step=EPOCH_NUM)]) as mon_sess:
             
+            f = open("result.txt", 'a+')
+            
             while not mon_sess.should_stop():
                 mon_sess.run(train_op)
                 step = mon_sess.run(add_global)
                 
                 if step % 700 == 0:
-                    print mon_sess.run(tf.get_collection('losses'))
-                    print mon_sess.run(tf.get_collection('learning_rate'))
+                    lo =  mon_sess.run(tf.get_collection('losses'))
+                    lr = mon_sess.run(tf.get_collection('learning_rate'))
                     
-                    total = 0.0
+                    print("%d  losses: %f" % (step, lo))
+                    print("%d  learning rate: %f" % (step, lr))
+                    f.write("%.5f\n" % lo)
+                    f.write("%.5f\n" % lr)
+                    
+                    
+                    vali_acc = 0.0
                     for i in range(78):
-                        total += mon_sess.run(accuracy)
+                        vali_acc += mon_sess.run(validation_accuracy)
+                    
+                    vali_acc /= 78
+                    print("%d  validation acc: %f" % (step, vali_acc))
+                    f.write("%.5f\n" % vali_acc)
+                    
+                    test_acc = 0.0
+                    for i in range(156):
+                        test_acc += mon_sess.run(test_accuracy)
                         
-                    total /= 78
-                    print("%d  validation: %f" % (step, total))
-                
+                    test_acc /= 156
+                    
+                    print("%d  Test acc: %f" % (step, test_acc))
+                    f.write("%.5f\n" % test_acc)
+            
+            print("Train over")
                 
 def main():
     train()
