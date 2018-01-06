@@ -150,22 +150,11 @@ def _get_train_and_validation_data():
     
 
 def _get_test_data():
-    t_datas = []
-    t_labels = []
-    images = unpickle(DATA_DIR + 'test_batch')
-    datas = images['data']
-    labels = images['labels']
-
-    for j in range(len(datas)):
-        image = datas[j]
-        label = labels[j]
-        img = np.reshape(image, (3,32,32))
-        img = img.transpose(1,2,0)
-        label = np.eye(10)[label]
-        t_datas.append(img)
-        t_labels.append(label)
-
-    return t_datas, t_labels
+    datas = unpickle(DATA_DIR + 'test_batch')
+    images = datas['data']
+    labels = datas['labels']
+    
+    return images, labels
 
 
 get_data_from_file()    

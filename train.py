@@ -165,7 +165,7 @@ def train():
                 mon_sess.run(train_op)
                 step = mon_sess.run(add_global)
                 
-                if step % 700 == 0:
+                if step % 1000 == 0:
                     lo =  mon_sess.run(tf.get_collection('losses'))
                     lr = mon_sess.run(tf.get_collection('learning_rate'))
                     
@@ -191,6 +191,7 @@ def train():
                     
                     print("%d  Test acc: %f" % (step, test_acc))
                     f.write("%.5f\n" % test_acc)
+                    f.flush()
             
             print("Train over")
                 
