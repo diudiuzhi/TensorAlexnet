@@ -35,6 +35,8 @@ def init_w(namespace, shape, stddev, reuse=False):
     with tf.variable_scope(namespace, reuse=reuse):
         initializer = tf.truncated_normal_initializer(dtype=tf.float32, stddev=stddev)
         w = tf.get_variable("w", shape=shape, initializer=initializer)
+        weight_decay = tf.multiply(tf.nn.l2_loss(w), name='weight_loss')
+        tf.add_to_collection('losses', weight_decay)
     return w
 
 
@@ -104,7 +106,7 @@ def loss_function(logits, labels):
     cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=labels, logits=logits)
     cross_entropy_mean = tf.reduce_mean(cross_entropy)
     tf.add_to_collection('losses', cross_entropy_mean)
-    return cross_entropy_mean
+    return tf.add_n(tf.get_collection('losses'), name='total_loss')
 
 
 def train_step(loss, global_step):
@@ -182,17 +184,16 @@ def train():
                     vali_acc /= 78
                     print("%d  validation acc: %f" % (step, vali_acc))
                     f.write("%.5f\n" % vali_acc)
-                    
-                    test_acc = 0.0
-                    for i in range(156):
-                        test_acc += mon_sess.run(test_accuracy)
-                        
-                    test_acc /= 156
-                    
-                    print("%d  Test acc: %f" % (step, test_acc))
-                    f.write("%.5f\n" % test_acc)
                     f.flush()
-            
+                    
+            test_acc = 0.0
+            for i in range(156):
+                test_acc += mon_sess.run(test_accuracy)
+                test_acc /= 156
+                    
+            print("%d  Test acc: %f" % (step, test_acc))
+            f.write("%.5f\n" % test_acc)
+            f.flush()
             print("Train over")
                 
 def main():

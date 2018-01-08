@@ -32,6 +32,10 @@ def unpickle(data_dir):
     return dict
 
 
+def _distorted_image(image):
+    pass
+
+
 def get_train_batch_data(batch_size):
     if batch_size <= 0:
         raise ValueError("batch size should greater than 0")
