@@ -31,12 +31,14 @@ def lrn(_x):
     return tf.nn.lrn(_x, depth_radius=4, bias=1.0, alpha=0.001 / 9.0, beta=0.75)
 
 
-def init_w(namespace, shape, stddev, reuse=False):
+def init_w(namespace, shape, stddev, wd, reuse=False):
     with tf.variable_scope(namespace, reuse=reuse):
         initializer = tf.truncated_normal_initializer(dtype=tf.float32, stddev=stddev)
         w = tf.get_variable("w", shape=shape, initializer=initializer)
-        weight_decay = tf.multiply(tf.nn.l2_loss(w), name='weight_loss')
-        tf.add_to_collection('losses', weight_decay)
+        
+        if wd:
+            weight_decay = tf.multiply(tf.nn.l2_loss(w), wd, name='weight_loss')
+            tf.add_to_collection('losses', weight_decay)
     return w
 
 
@@ -50,37 +52,37 @@ def init_b(namespace, shape, reuse=False):
 def inference(images, reuse=False):
     '''Build the network model and return logits'''
     # conv1
-    w1 = init_w("conv1", [3, 3, 3, 24], 0.055, reuse)
+    w1 = init_w("conv1", [3, 3, 3, 24], None, 0.01, reuse)
     bw1 = init_b("conv1", [24], reuse)
     conv1 = conv2d(images, w1, bw1)
     lrn1 = lrn(conv1)
     pool1 = max_pool(lrn1, 2)
     
     # conv2
-    w2 = init_w("conv2", [3, 3, 24, 96], 0.0034, reuse)
+    w2 = init_w("conv2", [3, 3, 24, 96], None, 0.01, reuse)
     bw2 = init_b("conv2", [96], reuse)
     conv2 = conv2d(pool1, w2, bw2)
     lrn2 = lrn(conv2)
     pool2 = max_pool(lrn2, 2)
     
     # conv3
-    w3 = init_w("conv3", [3, 3, 96, 192], 0.0034, reuse)
+    w3 = init_w("conv3", [3, 3, 96, 192], None, 0.01, reuse)
     bw3 = init_b("conv3", [192], reuse)
     conv3 = conv2d(pool2, w3, bw3)
     
     # conv4
-    w4 = init_w("conv4", [3, 3, 192, 192], 0.0024, reuse)
+    w4 = init_w("conv4", [3, 3, 192, 192], None, 0.01, reuse)
     bw4 = init_b("conv4", [192], reuse)
     conv4 = conv2d(conv3, w4, bw4)
     
     # conv5
-    w5 = init_w("conv5", [3, 3, 192, 96], 0.0034, reuse)
+    w5 = init_w("conv5", [3, 3, 192, 96], None, 0.01, reuse)
     bw5 = init_b("conv5", [96], reuse)
     conv5 = conv2d(conv4, w5, bw5)
     pool5 = max_pool(conv5, 2)
                 
     # FC1
-    wfc1 = init_w("fc1", [96*32*32, 1024], 1e-2, reuse)
+    wfc1 = init_w("fc1", [96*32*32, 1024], 0.004, 1e-2, reuse)
     bfc1 = init_b("fc1", [1024], reuse)
     shape = pool5.get_shape()
     reshape = tf.reshape(pool5, [-1, shape[1].value*shape[2].value*shape[3].value])
@@ -88,13 +90,13 @@ def inference(images, reuse=False):
     fc1_drop = tf.nn.dropout(fc1, keep_prob=DROPOUT)
     
     # FC2
-    wfc2 = init_w("fc2", [1024, 1024], 1e-2, reuse)
+    wfc2 = init_w("fc2", [1024, 1024], 0.004, 1e-2, reuse)
     bfc2 = init_b("fc2", [1024], reuse)
     fc2 = tf.nn.relu(tf.matmul(fc1_drop, wfc2) + bfc2)
     fc2_drop = tf.nn.dropout(fc2, keep_prob=DROPOUT)
     
     # FC3
-    wfc3 = init_w("fc3", [1024, 10], 1e-2, reuse)
+    wfc3 = init_w("fc3", [1024, 10], 0.004, 1e-2, reuse)
     bfc3 = init_b("fc3", [10], reuse)
     softmax_linear = tf.add(tf.matmul(fc2_drop, wfc3), bfc3)
     
