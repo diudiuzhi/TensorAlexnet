@@ -31,7 +31,7 @@ def lrn(_x):
     return tf.nn.lrn(_x, depth_radius=4, bias=1.0, alpha=0.001 / 9.0, beta=0.75)
 
 
-def init_w(namespace, shape, stddev, wd, reuse=False):
+def init_w(namespace, shape, wd, stddev, reuse=False):
     with tf.variable_scope(namespace, reuse=reuse):
         initializer = tf.truncated_normal_initializer(dtype=tf.float32, stddev=stddev)
         w = tf.get_variable("w", shape=shape, initializer=initializer)
@@ -82,7 +82,7 @@ def inference(images, reuse=False):
     pool5 = max_pool(conv5, 2)
                 
     # FC1
-    wfc1 = init_w("fc1", [96*32*32, 1024], 0.004, 1e-2, reuse)
+    wfc1 = init_w("fc1", [96*24*24, 1024], 0.004, 1e-2, reuse)
     bfc1 = init_b("fc1", [1024], reuse)
     shape = pool5.get_shape()
     reshape = tf.reshape(pool5, [-1, shape[1].value*shape[2].value*shape[3].value])
@@ -170,13 +170,13 @@ def train():
                 step = mon_sess.run(add_global)
                 
                 if step % 1000 == 0:
-                    lo =  mon_sess.run(tf.get_collection('losses'))
+                    lo =  mon_sess.run(loss)
                     lr = mon_sess.run(tf.get_collection('learning_rate'))
                     
                     print("%d  losses: %f" % (step, lo))
-                    print("%d  learning rate: %f" % (step, lr))
+                    print("%d  learning rate: %f" % (step, lr[0]))
                     f.write("%.5f\n" % lo)
-                    f.write("%.5f\n" % lr)
+                    f.write("%.5f\n" % lr[0])
                     
                     
                     vali_acc = 0.0

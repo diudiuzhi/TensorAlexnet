@@ -33,7 +33,21 @@ def unpickle(data_dir):
 
 
 def _distorted_image(image):
-    pass
+    height = IMAGE_SIZE
+    width = IMAGE_SIZE
+    
+    reshaped_image = tf.cast(image, tf.float32)
+    distorted_image = tf.random_crop(reshaped_image, [height, width, 3])
+    distorted_image = tf.image.random_flip_left_right(distorted_image)
+    distorted_image = tf.image.random_brightness(distorted_image,
+                                               max_delta=63)
+    distorted_image = tf.image.random_contrast(distorted_image,
+                                             lower=0.2, upper=1.8)
+    
+    float_image = tf.image.per_image_standardization(distorted_image)
+    float_image.set_shape([height, width, 3])
+    
+    return float_image
 
 
 def get_train_batch_data(batch_size):
@@ -52,10 +66,12 @@ def get_train_batch_data(batch_size):
     
     label = tf.cast(label, tf.int32)
     
+    float_image = _distorted_image(image)
+    
     min_queue_examples = int(batch_size * 0.4)
     
     images, labels = tf.train.batch(
-        [image, label],
+        [float_image, label],
         batch_size=batch_size,
         num_threads=16,
         capacity=min_queue_examples + 3 * batch_size)
@@ -78,11 +94,12 @@ def get_validation_batch_data(batch_size):
     image = tf.transpose(image, [1, 2, 0])
     
     label = tf.cast(label, tf.int32)
+    float_image = _distorted_image(image)
     
     min_queue_examples = int(batch_size * 0.4)
     
     images, labels = tf.train.batch(
-        [image, label],
+        [float_image, label],
         batch_size=batch_size,
         num_threads=16,
         capacity=min_queue_examples + 3 * batch_size)
@@ -105,11 +122,12 @@ def get_test_batch_data(batch_size):
     image = tf.transpose(image, [1, 2, 0])
     
     label = tf.cast(label, tf.int32)
+    float_image = _distorted_image(image)
     
     min_queue_examples = int(batch_size * 0.4)
     
     images, labels = tf.train.batch(
-        [image, label],
+        [float_image, label],
         batch_size=batch_size,
         num_threads=16,
         capacity=min_queue_examples + 3 * batch_size)
