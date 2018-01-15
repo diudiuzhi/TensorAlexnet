@@ -1,6 +1,7 @@
 # coding=utf-8
 
 import tensorflow as tf
+import time
 
 from config import get_conf
 import input 
@@ -55,15 +56,17 @@ def inference(images, reuse=False):
     w1 = init_w("conv1", [3, 3, 3, 24], None, 0.01, reuse)
     bw1 = init_b("conv1", [24], reuse)
     conv1 = conv2d(images, w1, bw1)
-    lrn1 = lrn(conv1)
-    pool1 = max_pool(lrn1, 2)
+    pool1 = max_pool(conv1, 2)
+    # lrn1 = lrn(conv1)
+    # pool1 = max_pool(lrn1, 2)
     
     # conv2
     w2 = init_w("conv2", [3, 3, 24, 96], None, 0.01, reuse)
     bw2 = init_b("conv2", [96], reuse)
     conv2 = conv2d(pool1, w2, bw2)
-    lrn2 = lrn(conv2)
-    pool2 = max_pool(lrn2, 2)
+    pool2 = max_pool(conv2, 2)
+    # lrn2 = lrn(conv2)
+    # pool2 = max_pool(lrn2, 2)
     
     # conv3
     w3 = init_w("conv3", [3, 3, 96, 192], None, 0.01, reuse)
@@ -145,7 +148,6 @@ def train():
         validation_logits = inference(validation_images, True)
         validation_labels = tf.one_hot(validation_labels, depth=10)
         
-        # 需要把 每一个batch的accuracy加起来，求平均
         validation_correct_pred = tf.equal(tf.argmax(validation_logits, 1), tf.argmax(validation_labels, 1))
         validation_accuracy = tf.reduce_mean(tf.cast(validation_correct_pred, tf.float32))
         
@@ -188,6 +190,9 @@ def train():
                     f.write("%.5f\n" % vali_acc)
                     f.flush()
                     
+                if step % 10000 == 0:
+                    break
+                    
             test_acc = 0.0
             for i in range(156):
                 test_acc += mon_sess.run(test_accuracy)
@@ -203,5 +208,8 @@ def main():
   
 
 if __name__ == "__main__":
+    start_time = time.time()
     main()
+    end_time = time.time()
+    print("Total time: %f" % (end_time-start_time))
     
