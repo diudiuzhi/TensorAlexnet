@@ -48,7 +48,6 @@ def _distorted_image(image, test=False):
 
     float_image = distorted_image
 
-#    float_image = tf.image.per_image_standardization(distorted_image)
     float_image.set_shape([height, width, 3])
 
     return float_image
@@ -145,17 +144,22 @@ def get_data_from_file():
 
     # test data
     t_datas, t_labels = _get_test_data()
+    
+    # calc mean
+    train_mean = np.mean(t_v_datas[:TRAIN_SET_SIZE], axis=0)
+    validation_mean = np.mean(t_v_datas[TRAIN_SET_SIZE:], axis=0)
+    test_mean = np.mean(t_datas, axis=0)
 
     # get train dataset
-    global TRAIN_IMAGES; TRAIN_IMAGES = t_v_datas[:TRAIN_SET_SIZE]
+    global TRAIN_IMAGES; TRAIN_IMAGES = t_v_datas[:TRAIN_SET_SIZE] - train_mean
     global TRAIN_LABELS; TRAIN_LABELS = t_v_labels[:TRAIN_SET_SIZE]
 
     # get validation dataset
-    global VALIDATION_IMAGES; VALIDATION_IMAGES = t_v_datas[TRAIN_SET_SIZE:]
+    global VALIDATION_IMAGES; VALIDATION_IMAGES = t_v_datas[TRAIN_SET_SIZE:] - validation_mean
     global VALIDATION_LABELS; VALIDATION_LABELS = t_v_labels[TRAIN_SET_SIZE:]
 
     # get test dataset
-    global TEST_IMAGES; TEST_IMAGES = t_datas[:TEST_SET_SIZE]
+    global TEST_IMAGES; TEST_IMAGES = t_datas[:TEST_SET_SIZE] - test_mean
     global TEST_LABELS; TEST_LABELS = t_labels[:TEST_SET_SIZE]
 
 
