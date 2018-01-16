@@ -101,11 +101,12 @@ def get_validation_batch_data(batch_size):
 
     min_queue_examples = int(batch_size * 0.4)
 
-    images, labels = tf.train.batch(
+    images, labels = tf.train.shuffle_batch(
         [float_image, label],
         batch_size=batch_size,
         num_threads=16,
-        capacity=min_queue_examples + 3 * batch_size)
+        capacity=min_queue_examples + 3 * batch_size,
+        min_after_dequeue=min_queue_examples)
 
     return images, labels
 

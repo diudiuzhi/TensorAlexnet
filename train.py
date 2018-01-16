@@ -21,7 +21,7 @@ DROPOUT = float(conf.get('train', 'dropout'))
 
 
 def conv2d(_x, _w, _b):
-    return tf.nn.relu(tf.nn.bias_add(tf.nn.conv2d(_x, _w, [1, 1, 1, 1], padding='SAME'), _b))
+    return tf.nn.bias_add(tf.nn.conv2d(_x, _w, [1, 1, 1, 1], padding='SAME'), _b)
 
 
 def max_pool(_x, f):
@@ -50,39 +50,65 @@ def init_b(namespace, shape, reuse=False):
     return b
 
 
+def batch_normal(xs, out_size):
+    axis = [list(range(len(xs.get_shape()) - 1))]
+    n_mean, n_var = tf.nn.moments(xs, axes=axis)
+    scale = tf.Variable(tf.ones([out_size]))
+    shift = tf.Variable(tf.zeros([out_size]))
+    epsilon = 0.001
+    ema = tf.train.ExponentialMovingAverage(decay=0.9)
+    
+    def mean_var_with_update():
+        ema_apply_op = ema.apply([n_mean, n_var])
+        with tf.control_dependencies([ema_apply_op]):
+            return tf.identity(n_mean), tf.identity(n_var)
+        
+    mean, var = mean_var_with_update()
+        
+    bn = tf.nn.batch_normalization(xs, mean, var, shift, scale, epsilon)
+    return bn
+    
+
 def inference(images, reuse=False):
     '''Build the network model and return logits'''
+    
     # conv1
     w1 = init_w("conv1", [3, 3, 3, 24], None, 0.01, reuse)
     bw1 = init_b("conv1", [24], reuse)
     conv1 = conv2d(images, w1, bw1)
-    pool1 = max_pool(conv1, 2)
-    # lrn1 = lrn(conv1)
-    # pool1 = max_pool(lrn1, 2)
+    bn1 = batch_normal(conv1, 24)
+    c_output1 = tf.nn.relu(bn1)
+    pool1 = max_pool(c_output1, 2)
     
     # conv2
     w2 = init_w("conv2", [3, 3, 24, 96], None, 0.01, reuse)
     bw2 = init_b("conv2", [96], reuse)
     conv2 = conv2d(pool1, w2, bw2)
-    pool2 = max_pool(conv2, 2)
-    # lrn2 = lrn(conv2)
-    # pool2 = max_pool(lrn2, 2)
+    bn2 = batch_normal(conv2, 96)
+    c_output2 = tf.nn.relu(bn2)
+    pool2 = max_pool(c_output2, 2)
     
     # conv3
     w3 = init_w("conv3", [3, 3, 96, 192], None, 0.01, reuse)
     bw3 = init_b("conv3", [192], reuse)
     conv3 = conv2d(pool2, w3, bw3)
+    bn3 = batch_normal(conv3, 192)
+    c_output3 = tf.nn.relu(bn3)
     
     # conv4
     w4 = init_w("conv4", [3, 3, 192, 192], None, 0.01, reuse)
     bw4 = init_b("conv4", [192], reuse)
     conv4 = conv2d(conv3, w4, bw4)
+    bn4 = batch_normal(conv4, 192)
+    c_output4 = tf.nn.relu(bn4)
     
     # conv5
     w5 = init_w("conv5", [3, 3, 192, 96], None, 0.01, reuse)
     bw5 = init_b("conv5", [96], reuse)
     conv5 = conv2d(conv4, w5, bw5)
-    pool5 = max_pool(conv5, 2)
+    bn5 = batch_normal(conv5, 96)
+    c_output5 = tf.nn.relu(bn5)
+    pool5 = max_pool(c_output5, 2)
                 
     # FC1
     wfc1 = init_w("fc1", [96*24*24, 1024], 0.004, 1e-2, reuse)
