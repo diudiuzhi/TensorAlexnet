@@ -111,7 +111,7 @@ def inference(images, reuse=False):
     pool5 = max_pool(c_output5, 2)
                 
     # FC1
-    wfc1 = init_w("fc1", [96*24*24, 1024], 0.None, 1e-2, reuse)
+    wfc1 = init_w("fc1", [96*24*24, 1024], None, 1e-2, reuse)
     bfc1 = init_b("fc1", [1024], reuse)
     shape = pool5.get_shape()
     reshape = tf.reshape(pool5, [-1, shape[1].value*shape[2].value*shape[3].value])
@@ -120,7 +120,7 @@ def inference(images, reuse=False):
     fc1 = tf.nn.relu(bn6)
     
     # FC2
-    wfc2 = init_w("fc2", [1024, 1024], 0.None, 1e-2, reuse)
+    wfc2 = init_w("fc2", [1024, 1024], None, 1e-2, reuse)
     bfc2 = init_b("fc2", [1024], reuse)
     w_x2 = tf.matmul(fc1, wfc2) + bfc2
     bn7 = batch_normal(w_x2, 1024)
