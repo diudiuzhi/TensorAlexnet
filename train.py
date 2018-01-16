@@ -51,7 +51,7 @@ def init_b(namespace, shape, reuse=False):
 
 
 def batch_normal(xs, out_size):
-    axis = [list(range(len(xs.get_shape()) - 1))]
+    axis = list(range(len(xs.get_shape()) - 1))
     n_mean, n_var = tf.nn.moments(xs, axes=axis)
     scale = tf.Variable(tf.ones([out_size]))
     shift = tf.Variable(tf.zeros([out_size]))
@@ -111,23 +111,25 @@ def inference(images, reuse=False):
     pool5 = max_pool(c_output5, 2)
                 
     # FC1
-    wfc1 = init_w("fc1", [96*24*24, 1024], 0.004, 1e-2, reuse)
+    wfc1 = init_w("fc1", [96*24*24, 1024], 0.None, 1e-2, reuse)
     bfc1 = init_b("fc1", [1024], reuse)
     shape = pool5.get_shape()
     reshape = tf.reshape(pool5, [-1, shape[1].value*shape[2].value*shape[3].value])
-    fc1 = tf.nn.relu(tf.matmul(reshape, wfc1) + bfc1)
-    fc1_drop = tf.nn.dropout(fc1, keep_prob=DROPOUT)
+    w_x1 = tf.matmul(reshape, wfc1) + bfc1
+    bn6 = batch_normal(w_x1, 1024)
+    fc1 = tf.nn.relu(bn6)
     
     # FC2
-    wfc2 = init_w("fc2", [1024, 1024], 0.004, 1e-2, reuse)
+    wfc2 = init_w("fc2", [1024, 1024], 0.None, 1e-2, reuse)
     bfc2 = init_b("fc2", [1024], reuse)
-    fc2 = tf.nn.relu(tf.matmul(fc1_drop, wfc2) + bfc2)
-    fc2_drop = tf.nn.dropout(fc2, keep_prob=DROPOUT)
+    w_x2 = tf.matmul(fc1, wfc2) + bfc2
+    bn7 = batch_normal(w_x2, 1024)
+    fc2 = tf.nn.relu(bn7)
     
     # FC3
-    wfc3 = init_w("fc3", [1024, 10], 0.004, 1e-2, reuse)
+    wfc3 = init_w("fc3", [1024, 10], None, 1e-2, reuse)
     bfc3 = init_b("fc3", [10], reuse)
-    softmax_linear = tf.add(tf.matmul(fc2_drop, wfc3), bfc3)
+    softmax_linear = tf.add(tf.matmul(fc2, wfc3), bfc3)
     
     return softmax_linear
 
@@ -216,13 +218,14 @@ def train():
                     f.write("%.5f\n" % vali_acc)
                     f.flush()
                     
-                if step % 10000 == 0:
+                if step % 100000 == 0:
                     break
                     
             test_acc = 0.0
             for i in range(156):
                 test_acc += mon_sess.run(test_accuracy)
-                test_acc /= 156
+                
+            test_acc /= 156
                     
             print("%d  Test acc: %f" % (step, test_acc))
             f.write("%.5f\n" % test_acc)
