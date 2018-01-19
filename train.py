@@ -76,60 +76,36 @@ def inference(images, reuse=False):
     w1 = init_w("conv1", [3, 3, 3, 24], None, 0.01, reuse)
     bw1 = init_b("conv1", [24], reuse)
     conv1 = conv2d(images, w1, bw1)
-    bn1 = batch_normal(conv1, 24)
-    c_output1 = tf.nn.relu(bn1)
+    c_output1 = tf.nn.relu(conv1)
     pool1 = max_pool(c_output1, 2)
     
     # conv2
     w2 = init_w("conv2", [3, 3, 24, 96], None, 0.01, reuse)
     bw2 = init_b("conv2", [96], reuse)
     conv2 = conv2d(pool1, w2, bw2)
-    bn2 = batch_normal(conv2, 96)
-    c_output2 = tf.nn.relu(bn2)
+    c_output2 = tf.nn.relu(conv2)
     pool2 = max_pool(c_output2, 2)
     
     # conv3
     w3 = init_w("conv3", [3, 3, 96, 192], None, 0.01, reuse)
     bw3 = init_b("conv3", [192], reuse)
     conv3 = conv2d(pool2, w3, bw3)
-    bn3 = batch_normal(conv3, 192)
-    c_output3 = tf.nn.relu(bn3)
+    c_output3 = tf.nn.relu(conv3)
+    pool3 = max_pool(c_output3, 2)
     
-    # conv4
-    w4 = init_w("conv4", [3, 3, 192, 192], None, 0.01, reuse)
-    bw4 = init_b("conv4", [192], reuse)
-    conv4 = conv2d(conv3, w4, bw4)
-    bn4 = batch_normal(conv4, 192)
-    c_output4 = tf.nn.relu(bn4)
-    
-    # conv5
-    w5 = init_w("conv5", [3, 3, 192, 96], None, 0.01, reuse)
-    bw5 = init_b("conv5", [96], reuse)
-    conv5 = conv2d(conv4, w5, bw5)
-    bn5 = batch_normal(conv5, 96)
-    c_output5 = tf.nn.relu(bn5)
-    pool5 = max_pool(c_output5, 2)
                 
     # FC1
-    wfc1 = init_w("fc1", [96*24*24, 1024], None, 1e-2, reuse)
+    wfc1 = init_w("fc1", [192*24*24, 1024], None, 1e-2, reuse)
     bfc1 = init_b("fc1", [1024], reuse)
-    shape = pool5.get_shape()
-    reshape = tf.reshape(pool5, [-1, shape[1].value*shape[2].value*shape[3].value])
+    shape = pool3.get_shape()
+    reshape = tf.reshape(pool3, [-1, shape[1].value*shape[2].value*shape[3].value])
     w_x1 = tf.matmul(reshape, wfc1) + bfc1
-    bn6 = batch_normal(w_x1, 1024)
     fc1 = tf.nn.relu(bn6)
     
     # FC2
-    wfc2 = init_w("fc2", [1024, 1024], None, 1e-2, reuse)
-    bfc2 = init_b("fc2", [1024], reuse)
-    w_x2 = tf.matmul(fc1, wfc2) + bfc2
-    bn7 = batch_normal(w_x2, 1024)
-    fc2 = tf.nn.relu(bn7)
-    
-    # FC3
-    wfc3 = init_w("fc3", [1024, 10], None, 1e-2, reuse)
-    bfc3 = init_b("fc3", [10], reuse)
-    softmax_linear = tf.add(tf.matmul(fc2, wfc3), bfc3)
+    wfc2 = init_w("fc2", [1024, 10], None, 1e-2, reuse)
+    bfc2 = init_b("fc2", [10], reuse)
+    softmax_linear = tf.add(tf.matmul(fc1, wfc2), bfc2)
     
     return softmax_linear
 
@@ -168,7 +144,8 @@ def train():
         loss = loss_function(logits, labels)
         train_op = train_step(loss, global_step)
         
-        train_correct_pred = tf.equal(tf.argmax(logits, 1), tf.argmax(labels, 1))
+        train_labels = tf.one_hot(labels, depth=10)
+        train_correct_pred = tf.equal(tf.argmax(logits, 1), tf.argmax(train_labels, 1))
         train_accuracy = tf.reduce_mean(tf.cast(train_correct_pred, tf.float32))
         
         ##### Test step
@@ -206,7 +183,7 @@ def train():
                     f.flush()
                     
                     test_acc = 0.0
-                    test_epoch = int(10000/156)
+                    test_epoch = int(10000/BATCH_SIZE)
                     
                     for i in range(test_epoch):
                         test_acc += mon_sess.run(test_accuracy)
