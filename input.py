@@ -11,16 +11,10 @@ conf = get_conf()
 
 # get configration
 DATA_DIR = conf.get('data', 'dir')
-TRAIN_SET_SIZE = int(conf.get('data', 'train_set'))
-VALIDATION_SET_SIZE = int(conf.get('data', 'valiation_set'))
-TEST_SET_SIZE = int(conf.get('data', 'test_set'))
 IMAGE_SIZE = int(conf.get('data', 'image_size'))
 
 TRAIN_IMAGES = []
 TRAIN_LABELS = []
-
-VALIDATION_IMAGES = []
-VALIDATION_LABELS = []
 
 TEST_IMAGES = []
 TEST_LABELS = []
@@ -47,7 +41,6 @@ def _distorted_image(image, test=False):
                                                    lower=0.2, upper=1.8)
 
     float_image = distorted_image
-
     float_image.set_shape([height, width, 3])
 
     return float_image
@@ -82,35 +75,6 @@ def get_train_batch_data(batch_size):
     return images, labels
 
 
-def get_validation_batch_data(batch_size):
-    if batch_size <= 0:
-        raise ValueError("batch size should greater than 0")
-
-    valuequeue = tf.train.input_producer(VALIDATION_IMAGES, shuffle=False)
-    valuelabel = tf.train.input_producer(VALIDATION_LABELS, shuffle=False)
-
-    image = valuequeue.dequeue()
-    label = valuelabel.dequeue()
-
-    image = tf.cast(image, tf.float32)
-    image = tf.reshape(image, [3, 32, 32])
-    image = tf.transpose(image, [1, 2, 0])
-
-    label = tf.cast(label, tf.int32)
-    float_image = _distorted_image(image)
-
-    min_queue_examples = int(batch_size * 0.4)
-
-    images, labels = tf.train.shuffle_batch(
-        [float_image, label],
-        batch_size=batch_size,
-        num_threads=16,
-        capacity=min_queue_examples + 3 * batch_size,
-        min_after_dequeue=min_queue_examples)
-
-    return images, labels
-
-
 def get_test_batch_data(batch_size):
     if batch_size <= 0:
         raise ValueError("batch size should greater than 0")
@@ -141,30 +105,24 @@ def get_test_batch_data(batch_size):
 
 def get_data_from_file():
     # train and validation data
-    t_v_datas, t_v_labels = _get_train_and_validation_data()
+    t_v_datas, t_v_labels = _get_train_data()
 
     # test data
     t_datas, t_labels = _get_test_data()
     
     # calc mean
-    train_mean = np.mean(t_v_datas[:TRAIN_SET_SIZE], axis=0)
-    validation_mean = np.mean(t_v_datas[TRAIN_SET_SIZE:], axis=0)
-    test_mean = np.mean(t_datas, axis=0)
+    train_mean = np.mean(t_v_datas, axis=0)
 
     # get train dataset
-    global TRAIN_IMAGES; TRAIN_IMAGES = t_v_datas[:TRAIN_SET_SIZE] - train_mean
-    global TRAIN_LABELS; TRAIN_LABELS = t_v_labels[:TRAIN_SET_SIZE]
-
-    # get validation dataset
-    global VALIDATION_IMAGES; VALIDATION_IMAGES = t_v_datas[TRAIN_SET_SIZE:] - validation_mean
-    global VALIDATION_LABELS; VALIDATION_LABELS = t_v_labels[TRAIN_SET_SIZE:]
+    global TRAIN_IMAGES; TRAIN_IMAGES = t_v_datas - train_mean
+    global TRAIN_LABELS; TRAIN_LABELS = t_v_labels
 
     # get test dataset
-    global TEST_IMAGES; TEST_IMAGES = t_datas[:TEST_SET_SIZE] - test_mean
-    global TEST_LABELS; TEST_LABELS = t_labels[:TEST_SET_SIZE]
+    global TEST_IMAGES; TEST_IMAGES = t_datas - train_mean
+    global TEST_LABELS; TEST_LABELS = t_labels
 
 
-def _get_train_and_validation_data():
+def _get_train_data():
     datas = unpickle(DATA_DIR + 'data_batch_1')
     t_v_datas = datas['data']
     t_v_labels = datas['labels']

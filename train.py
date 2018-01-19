@@ -168,16 +168,8 @@ def train():
         loss = loss_function(logits, labels)
         train_op = train_step(loss, global_step)
         
-        ##### validation step
-        
-        with tf.device('/cpu:0'):
-            validation_images, validation_labels = input.get_validation_batch_data(BATCH_SIZE)
-        
-        validation_logits = inference(validation_images, True)
-        validation_labels = tf.one_hot(validation_labels, depth=10)
-        
-        validation_correct_pred = tf.equal(tf.argmax(validation_logits, 1), tf.argmax(validation_labels, 1))
-        validation_accuracy = tf.reduce_mean(tf.cast(validation_correct_pred, tf.float32))
+        train_correct_pred = tf.equal(tf.argmax(logits, 1), tf.argmax(labels, 1))
+        train_accuracy = tf.reduce_mean(tf.cast(train_correct_pred, tf.float32))
         
         ##### Test step
         with tf.device('/cpu:0'):
@@ -196,7 +188,8 @@ def train():
             f = open("result.txt", 'a+')
             
             while not mon_sess.should_stop():
-                mon_sess.run(train_op)
+                train_acc = mon_sess.run([train_op, train_accuracy])
+                
                 step = mon_sess.run(add_global)
                 
                 if step % 1000 == 0:
@@ -208,28 +201,22 @@ def train():
                     f.write("%.5f\n" % lo)
                     f.write("%.5f\n" % lr[0])
                     
-                    
-                    vali_acc = 0.0
-                    for i in range(78):
-                        vali_acc += mon_sess.run(validation_accuracy)
-                    
-                    vali_acc /= 78
-                    print("%d  validation acc: %f" % (step, vali_acc))
-                    f.write("%.5f\n" % vali_acc)
+                    print("%d  Train acc: %f" % (step, train_acc))
+                    f.write("%.5f\n" % train_acc)
                     f.flush()
                     
-                if step % 100000 == 0:
-                    break
+                    test_acc = 0.0
+                    test_epoch = int(10000/156)
                     
-            test_acc = 0.0
-            for i in range(156):
-                test_acc += mon_sess.run(test_accuracy)
-                
-            test_acc /= 156
+                    for i in range(test_epoch):
+                        test_acc += mon_sess.run(test_accuracy)
+
+                    test_acc /= test_epoch
                     
-            print("%d  Test acc: %f" % (step, test_acc))
-            f.write("%.5f\n" % test_acc)
-            f.flush()
+                    print("%d  Test acc: %f" % (step, test_acc))
+                    f.write("%.5f\n" % test_acc)
+                    f.flush()
+                    
             print("Train over")
                 
 def main():
