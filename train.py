@@ -1,6 +1,8 @@
 # coding=utf-8
 
 import tensorflow as tf
+from tensorflow.python.ops import control_flow_ops
+from tensorflow.python.training import moving_averages
 import time
 
 from config import get_conf
@@ -51,21 +53,32 @@ def init_b(namespace, shape, reuse=False):
 
 
 def batch_normal(xs, out_size):
-    axis = list(range(len(xs.get_shape()) - 1))
-    n_mean, n_var = tf.nn.moments(xs, axes=axis)
-    scale = tf.Variable(tf.ones([out_size]))
-    shift = tf.Variable(tf.zeros([out_size]))
-    epsilon = 0.001
-    ema = tf.train.ExponentialMovingAverage(decay=0.9)
+    x_shape = x.get_shape()
+    params_shape = x_shape[-1:]
     
-    def mean_var_with_update():
-        ema_apply_op = ema.apply([n_mean, n_var])
-        with tf.control_dependencies([ema_apply_op]):
-            return tf.identity(n_mean), tf.identity(n_var)
-        
-    mean, var = mean_var_with_update()
-        
-    bn = tf.nn.batch_normalization(xs, mean, var, shift, scale, epsilon)
+    axis = list(range(len(xs.get_shape()) - 1))
+    
+    beta = tf.get_variable('beta', params_shape, initializer=tf.zeros_initializer)
+    gamma = tf.get_variable('gamma', params_shape, initializer=tf.ones_initializer)
+    
+    moving_mean = tf.get_variable('moving_mean', params_shape, initializer=tf.zeros_initializer, trainable=False)
+    moving_variance = tf.get_variable('moving_variance', params_shape, initializer=tf.ones_initializer, trainable=False)
+    
+    mean, variance = tf.nn.moments(xs, axes=axis)
+    update_moving_mean = moving_averages.assign_moving_average(
+        moving_mean, mean, 0.9997)
+    
+    update_moving_variance = moving_averages.assign_moving_average(
+        moving_variance, variance, 0.9997)
+    
+    tf.add_to_collection("resnet_update_ops", update_moving_mean)
+    tf.add_to_collection("resnet_update_ops", update_moving_variance)
+    
+    mean, variance = control_flow_ops.cond(
+        True, lambda: (mean, variance),
+        lambda: (moving_mean, moving_variance))
+    
+    bn = tf.nn.batch_normalization(xs, mean, variance, beta, gamma, 0.001)
     return bn
     
 
@@ -76,21 +89,24 @@ def inference(images, reuse=False):
     w1 = init_w("conv1", [3, 3, 3, 24], None, 0.01, reuse)
     bw1 = init_b("conv1", [24], reuse)
     conv1 = conv2d(images, w1, bw1)
-    c_output1 = tf.nn.relu(conv1)
+    bn1 = batch_normal(conv1, 24)
+    c_output1 = tf.nn.relu(bn1)
     pool1 = max_pool(c_output1, 2)
     
     # conv2
     w2 = init_w("conv2", [3, 3, 24, 96], None, 0.01, reuse)
     bw2 = init_b("conv2", [96], reuse)
     conv2 = conv2d(pool1, w2, bw2)
-    c_output2 = tf.nn.relu(conv2)
+    bn2 = batch_normal(conv2, 96)
+    c_output2 = tf.nn.relu(bn2)
     pool2 = max_pool(c_output2, 2)
     
     # conv3
     w3 = init_w("conv3", [3, 3, 96, 192], None, 0.01, reuse)
     bw3 = init_b("conv3", [192], reuse)
     conv3 = conv2d(pool2, w3, bw3)
-    c_output3 = tf.nn.relu(conv3)
+    bn3 = batch_normal(conv3, 192)
+    c_output3 = tf.nn.relu(bn3)
     pool3 = max_pool(c_output3, 2)
     
                 
@@ -100,14 +116,15 @@ def inference(images, reuse=False):
     shape = pool3.get_shape()
     reshape = tf.reshape(pool3, [-1, shape[1].value*shape[2].value*shape[3].value])
     w_x1 = tf.matmul(reshape, wfc1) + bfc1
-    fc1 = tf.nn.relu(bn6)
+    bn4 = batch_normal(w_x1, 1024)
+    fc1 = tf.nn.relu(bn4)
     
     # FC2
     wfc2 = init_w("fc2", [1024, 10], None, 1e-2, reuse)
     bfc2 = init_b("fc2", [10], reuse)
     softmax_linear = tf.add(tf.matmul(fc1, wfc2), bfc2)
-    
-    return softmax_linear
+    bn5 = batch_normal(softmax_linear, 10)
+    return bn5
 
 
 def loss_function(logits, labels):
@@ -164,12 +181,14 @@ def train():
             
             f = open("result.txt", 'a+')
             
+            train_acc = 0.0
             while not mon_sess.should_stop():
-                train_acc = mon_sess.run([train_op, train_accuracy])
+                mon_sess.run(train_op)
+                train_acc += mon_sess.run(train_accuracy)
                 
                 step = mon_sess.run(add_global)
                 
-                if step % 1000 == 0:
+                if step % 195 == 0:
                     lo =  mon_sess.run(loss)
                     lr = mon_sess.run(tf.get_collection('learning_rate'))
                     
@@ -178,9 +197,11 @@ def train():
                     f.write("%.5f\n" % lo)
                     f.write("%.5f\n" % lr[0])
                     
+                    train_acc /= 195
                     print("%d  Train acc: %f" % (step, train_acc))
                     f.write("%.5f\n" % train_acc)
                     f.flush()
+                    train_acc = 0.0
                     
                     test_acc = 0.0
                     test_epoch = int(10000/BATCH_SIZE)
